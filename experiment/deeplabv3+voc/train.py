@@ -67,6 +67,7 @@ def train_net():
 	max_itr = cfg.TRAIN_EPOCHS*len(dataloader)
 	running_loss = 0.0
 	tblogger = SummaryWriter(cfg.LOG_DIR)
+	os.system('cp /content/deeplabv3plus-pytorch/experiment/deeplabv3+voc/config.py  ' +cfg.PTH_LOG_SAVEPATH+'/')
 	#net.eval()
 	for epoch in range(cfg.TRAIN_MINEPOCH, cfg.TRAIN_EPOCHS):
 		#scheduler.step()
