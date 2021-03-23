@@ -16,7 +16,7 @@ class Configuration():
 		self.TRAIN_BATCHES = 14		
 		self.TRAIN_EPOCHS = 46		
 		self.PTH_LOG_SAVEPATH=""
-		
+		self.IF_SAVE_TEST_OUT=False		
 		
 		self.ROOT_DIR = os.path.abspath("/content")
 		self.EXP_NAME = 'deeplabv3+voc'
