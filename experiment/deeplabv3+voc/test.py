@@ -75,11 +75,12 @@ def test_net():
 			result = torch.argmax(multi_avg, dim=1).cpu().numpy().astype(np.uint8)
 			result_color=np.zeros(shape=(batch,3,result.shape[-1],result.shape[-1]))
 			#print(result[0].shape)
-			for i in range(batch):
-				result_color[i]=dataset.label2colormap(result[i]).transpose((2,0,1))
-				tblogger.add_image('Output', result_color[i], flag)
-				tblogger.add_image('Input', inputs_batched[i], flag)				
-				flag=flag+1
+			if cfg.IF_SAVE_TEST_OUT:
+				for i in range(batch):
+					result_color[i]=dataset.label2colormap(result[i]).transpose((2,0,1))
+					tblogger.add_image('Output', result_color[i], flag)
+					tblogger.add_image('Input', inputs_batched[i], flag)	
+					flag=flag+1
 			
 			for i in range(batch):
 				row = row_batched[i]
