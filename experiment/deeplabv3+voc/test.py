@@ -78,6 +78,7 @@ def test_net():
 			for i in range(batch):
 				result_color[i]=dataset.label2colormap(result[i]).transpose((2,0,1))
 				tblogger.add_image('Output', result_color[i], flag)
+				tblogger.add_image('Input', inputs_batched[i], flag)				
 				flag=flag+1
 			
 			for i in range(batch):
