@@ -9,6 +9,7 @@ import numpy as np
 import torch.nn.functional as F
 from net.sync_batchnorm import SynchronizedBatchNorm2d
 
+
 class myaspp(nn.Module):
 	
 	def __init__(self, dim_in, dim_out, rate=1, bn_mom=0.1):
@@ -61,6 +62,7 @@ class myaspp(nn.Module):
 		
 		feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3],dim=1) #global_feature], dim=1)
 #		feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3], dim=1)
+
 		result = self.conv_cat(feature_cat)      
 		return result
 

@@ -11,6 +11,8 @@ from torch.nn import init
 from net.backbone import build_backbone
 from net.ASPP import ASPP
 from net.myaspp import myaspp
+from net.myattention import ChannelGate
+
 
 class deeplabv3plus(nn.Module):
 	def __init__(self, cfg):
@@ -29,6 +31,8 @@ class deeplabv3plus(nn.Module):
 		indim = 256
 		self.myaspp=myaspp(indim,cfg.MODEL_SHORTCUT_DIM)
 
+        
+		self.attention=ChannelGate()
 		
 		self.shortcut_conv = nn.Sequential(
 				nn.Conv2d(indim, cfg.MODEL_SHORTCUT_DIM, cfg.MODEL_SHORTCUT_KERNEL, 1, padding=cfg.MODEL_SHORTCUT_KERNEL//2,bias=True),
@@ -65,6 +69,10 @@ class deeplabv3plus(nn.Module):
 		#feature_shallow = self.shortcut_conv(layers[0])
 		feature_shallow=self.myaspp(layers[0])
 		
+        #attention module
+		attention_weight=self.attention(layers[0])
+		feature_shallow=torch.mul(feature_shallow,attention_weight)
+        
 		feature_cat = torch.cat([feature_aspp,feature_shallow],1)
 		result = self.cat_conv(feature_cat) 
 		result = self.cls_conv(result)
