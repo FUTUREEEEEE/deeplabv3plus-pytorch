@@ -19,6 +19,10 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from net.loss import MaskCrossEntropyLoss, MaskBCELoss, MaskBCEWithLogitsLoss
 from net.sync_batchnorm.replicate import patch_replication_callback
+
+os.system('mkdir -p '+cfg.PTH_LOG_SAVEPATH+'/log/')
+os.system('mkdir -p '+cfg.PTH_LOG_SAVEPATH+'/pth/')
+
 def train_net():
 	dataset = generate_dataset(cfg.DATA_NAME, cfg, 'train', cfg.DATA_AUG)
 	dataloader = DataLoader(dataset, 
@@ -28,6 +32,18 @@ def train_net():
 				drop_last=True)
 	
 	net = generate_net(cfg)
+	
+	if cfg.IF_FINETUNE:
+		pretrained_params = torch.load('/content/drive/MyDrive/deeplabv3_plus/pytorch/YudeWang-deeplabv3plus-pytorch/Modified/detail_branch_modifed_ASPP/v4/pth/deeplabv3plus_res101_atrous_VOC2012_epoch13_all.pth')
+		net.load_state_dict(pretrained_params, strict=False) 
+		for name, value in net.named_parameters():
+			if name.split(".", 1)[0] not in ['attention','myconv_cat']:
+				value.requires_grad = False
+			else:
+				print(name)
+
+
+
 	if cfg.TRAIN_TBLOG:
 		from tensorboardX import SummaryWriter
 		# Set the Tensorboard logger
@@ -51,13 +67,19 @@ def train_net():
 		# net.load_state_dict(torch.load(cfg.TRAIN_CKPT),False)
 	
 	criterion = nn.CrossEntropyLoss(ignore_index=255)
-	optimizer = optim.SGD(
+	
+	if cfg.IF_FINETUNE:
+		optimizer = optim.SGD(
+			filter(lambda p: p.requires_grad, net.parameters()),
+			momentum=cfg.TRAIN_MOMENTUM,lr=cfg.TRAIN_LR
+		)
+	else:
+		optimizer = optim.SGD(
 		params = [
-			{'params': get_params(net.module,key='1x'), 'lr': cfg.TRAIN_LR},
-			{'params': get_params(net.module,key='10x'), 'lr': 10*cfg.TRAIN_LR}
+			{'params': get_params(net,key='1x'), 'lr': cfg.TRAIN_LR},
+			{'params': get_params(net,key='10x'), 'lr': 10*cfg.TRAIN_LR}
 		],
-		momentum=cfg.TRAIN_MOMENTUM,
-		weight_decay=cfg.TRAIN_WEIGHT_DECAY,
+		momentum=cfg.TRAIN_MOMENTUM
 	)
 	
 	#scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.TRAIN_LR_MST, gamma=cfg.TRAIN_LR_GAMMA, last_epoch=-1)
@@ -65,7 +87,8 @@ def train_net():
 	max_itr = cfg.TRAIN_EPOCHS*len(dataloader)
 	running_loss = 0.0
 	tblogger = SummaryWriter(cfg.LOG_DIR)
-
+	os.system('cp /content/deeplabv3plus-pytorch/experiment/deeplabv3+voc/config.py  ' +cfg.PTH_LOG_SAVEPATH+'/')
+	#net.eval()
 	for epoch in range(cfg.TRAIN_MINEPOCH, cfg.TRAIN_EPOCHS):
 		#scheduler.step()
 		#now_lr = scheduler.get_lr()
@@ -73,10 +96,11 @@ def train_net():
 			now_lr = adjust_lr(optimizer, itr, max_itr)
 			inputs_batched, labels_batched = sample_batched['image'], sample_batched['segmentation']
 			optimizer.zero_grad()
-			labels_batched = labels_batched.long().to(1)
+			labels_batched = labels_batched.long().to(0)
 			#0foreground_pix = (torch.sum(labels_batched!=0).float()+1)/(cfg.DATA_RESCALE**2*cfg.TRAIN_BATCHES)
+			inputs_batched = inputs_batched.float().to(0) 
 			predicts_batched = net(inputs_batched)
-			predicts_batched = predicts_batched.to(1) 
+			predicts_batched = predicts_batched.to(0)			
 			loss = criterion(predicts_batched, labels_batched)
 
 			loss.backward()
@@ -89,8 +113,8 @@ def train_net():
 				itr+1, now_lr, running_loss))
 			if cfg.TRAIN_TBLOG and itr%100 == 0:
 				#inputs = np.array((inputs_batched[0]*128+128).numpy().transpose((1,2,0)),dtype=np.uint8)
-				inputs = inputs_batched.numpy()[0]
-				#inputs = inputs_batched.numpy()[0]/2.0 + 0.5
+				#inputs = inputs_batched.numpy()[0]
+				inputs = inputs_batched.cpu().numpy()[0]/2.0 + 0.5
 				labels = labels_batched[0].cpu().numpy()
 				labels_color = dataset.label2colormap(labels).transpose((2,0,1))
 				predicts = torch.argmax(predicts_batched[0],dim=0).cpu().numpy()
@@ -103,13 +127,18 @@ def train_net():
 				tblogger.add_image('Input', inputs, itr)
 				tblogger.add_image('Label', labels_color, itr)
 				tblogger.add_image('Output', predicts_color, itr)
+				
 			running_loss = 0.0
 			
 			if itr % 5000 == 0:
 				save_path = os.path.join(cfg.MODEL_SAVE_DIR,'%s_%s_%s_itr%d.pth'%(cfg.MODEL_NAME,cfg.MODEL_BACKBONE,cfg.DATA_NAME,itr))
 				torch.save(net.state_dict(), save_path)
 				print('%s has been saved'%save_path)
-
+       				
+				print('saving to drive')
+				os.system('mv /content/model/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/pth/')
+				os.system('cp -f /content/log/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/log/')
+				os.system('cp -f /content/mylog '+cfg.PTH_LOG_SAVEPATH+'/')
 			itr += 1
 		
 	save_path = os.path.join(cfg.MODEL_SAVE_DIR,'%s_%s_%s_epoch%d_all.pth'%(cfg.MODEL_NAME,cfg.MODEL_BACKBONE,cfg.DATA_NAME,cfg.TRAIN_EPOCHS))		
@@ -117,11 +146,15 @@ def train_net():
 	if cfg.TRAIN_TBLOG:
 		tblogger.close()
 	print('%s has been saved'%save_path)
+	os.system('cp -f /content/model/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/pth/')
+	os.system('cp -f /content/log/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/log/')
+	os.system('cp -f /content/mylog '+cfg.PTH_LOG_SAVEPATH+'/')
 
 def adjust_lr(optimizer, itr, max_itr):
 	now_lr = cfg.TRAIN_LR * (1 - itr/(max_itr+1)) ** cfg.TRAIN_POWER
 	optimizer.param_groups[0]['lr'] = now_lr
-	optimizer.param_groups[1]['lr'] = 10*now_lr
+	if not cfg.IF_FINETUNE:
+		optimizer.param_groups[1]['lr'] = 10*now_lr
 	return now_lr
 
 def get_params(model, key):
@@ -134,7 +167,6 @@ def get_params(model, key):
 			if 'backbone' not in m[0] and isinstance(m[1], nn.Conv2d):
 				for p in m[1].parameters():
 					yield p
-
 if __name__ == '__main__':
 	train_net()
 
