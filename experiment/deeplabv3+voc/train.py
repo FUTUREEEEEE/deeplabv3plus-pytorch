@@ -32,6 +32,18 @@ def train_net():
 				drop_last=True)
 	
 	net = generate_net(cfg)
+	
+	if cfg.IF_FINETUNE:
+		pretrained_params = torch.load('/content/drive/MyDrive/deeplabv3_plus/pytorch/YudeWang-deeplabv3plus-pytorch/Modified/detail_branch_modifed_ASPP/v4/pth/deeplabv3plus_res101_atrous_VOC2012_epoch13_all.pth')
+		net.load_state_dict(pretrained_params, strict=False) 
+		for name, value in net.named_parameters():
+			if name.split(".", 1)[0] not in ['attention','myconv_cat']:
+				value.requires_grad = False
+			else:
+				print(name)
+
+
+
 	if cfg.TRAIN_TBLOG:
 		from tensorboardX import SummaryWriter
 		# Set the Tensorboard logger
@@ -55,13 +67,21 @@ def train_net():
 		# net.load_state_dict(torch.load(cfg.TRAIN_CKPT),False)
 	
 	criterion = nn.CrossEntropyLoss(ignore_index=255)
-	optimizer = optim.SGD(
+	
+	if cfg.IF_FINETUNE:
+		optimizer = optim.SGD(
+			filter(lambda p: p.requires_grad, net.parameters()),
+			momentum=cfg.TRAIN_MOMENTUM,lr=cfg.TRAIN_LR
+		)
+	else:
+		optimizer = optim.SGD(
 		params = [
 			{'params': get_params(net,key='1x'), 'lr': cfg.TRAIN_LR},
 			{'params': get_params(net,key='10x'), 'lr': 10*cfg.TRAIN_LR}
 		],
 		momentum=cfg.TRAIN_MOMENTUM
 	)
+	
 	#scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=cfg.TRAIN_LR_MST, gamma=cfg.TRAIN_LR_GAMMA, last_epoch=-1)
 	itr = cfg.TRAIN_MINEPOCH * len(dataloader)
 	max_itr = cfg.TRAIN_EPOCHS*len(dataloader)
@@ -133,7 +153,8 @@ def train_net():
 def adjust_lr(optimizer, itr, max_itr):
 	now_lr = cfg.TRAIN_LR * (1 - itr/(max_itr+1)) ** cfg.TRAIN_POWER
 	optimizer.param_groups[0]['lr'] = now_lr
-	optimizer.param_groups[1]['lr'] = 10*now_lr
+	if not cfg.IF_FINETUNE:
+		optimizer.param_groups[1]['lr'] = 10*now_lr
 	return now_lr
 
 def get_params(model, key):
