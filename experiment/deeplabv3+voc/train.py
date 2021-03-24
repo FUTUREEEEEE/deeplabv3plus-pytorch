@@ -116,7 +116,7 @@ def train_net():
 				print('%s has been saved'%save_path)
        				
 				print('saving to drive')
-				os.system('cp -f /content/model/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/pth/')
+				os.system('mv  /content/model/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/pth/')
 				os.system('cp -f /content/log/deeplabv3+voc/*  '+cfg.PTH_LOG_SAVEPATH+'/log/')
 				os.system('cp -f /content/mylog '+cfg.PTH_LOG_SAVEPATH+'/')
 			itr += 1
