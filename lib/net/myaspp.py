@@ -63,8 +63,8 @@ class myaspp(nn.Module):
 		feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3],dim=1) #global_feature], dim=1)
 #		feature_cat = torch.cat([conv1x1, conv3x3_1, conv3x3_2, conv3x3_3], dim=1)
 
-		result = self.conv_cat(feature_cat)      
-		return result
+		#result = self.conv_cat(feature_cat)      
+		return feature_cat
 
 #net=myaspp(256,48,1)
 #net.eval()

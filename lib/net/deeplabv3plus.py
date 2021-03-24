@@ -58,6 +58,11 @@ class deeplabv3plus(nn.Module):
 				nn.init.constant_(m.bias, 0)
 		self.backbone = build_backbone(cfg.MODEL_BACKBONE, os=cfg.MODEL_OUTPUT_STRIDE)
 		self.backbone_layers = self.backbone.get_layers()
+		self.myconv_cat = nn.Sequential(
+				nn.Conv2d(cfg.MODEL_SHORTCUT_DIM*4, cfg.MODEL_SHORTCUT_DIM, 3,1, padding=1,bias=True),  #使用3*3卷积降维 学习提取轮廓特征  
+				SynchronizedBatchNorm2d(cfg.MODEL_SHORTCUT_DIM, momentum=0.1),        #需要更改dim_out=MODEL_SHORTCUT_DIM
+				nn.ReLU(inplace=True),		
+		)
 
 	def forward(self, x):
 		x_bottom = self.backbone(x)
@@ -69,10 +74,11 @@ class deeplabv3plus(nn.Module):
 		#feature_shallow = self.shortcut_conv(layers[0])
 		feature_shallow=self.myaspp(layers[0])
 		
-        #attention module
+		#attention module
 		attention_weight=self.attention(layers[0])
 		feature_shallow=torch.mul(feature_shallow,attention_weight)
-        
+		feature_shallow=self.myconv_cat(feature_shallow)
+
 		feature_cat = torch.cat([feature_aspp,feature_shallow],1)
 		result = self.cat_conv(feature_cat) 
 		result = self.cls_conv(result)

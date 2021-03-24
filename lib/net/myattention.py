@@ -2,9 +2,7 @@ import torch
 import math
 import torch.nn as nn
 import torch.nn.functional as F
-import tensorwatch as tw
-from torchviz import make_dot, make_dot_from_trace
-import hiddenlayer as hl
+
 from config import cfg
 
 class Flatten(nn.Module):
@@ -17,9 +15,9 @@ class ChannelGate(nn.Module):
         self.gate_channels = gate_channels
         self.mlp = nn.Sequential(
             Flatten(),
-            nn.Linear(gate_channels, gate_channels // reduction_ratio),
+            nn.Linear(256, 256 // reduction_ratio),
             nn.ReLU(),
-            nn.Linear(gate_channels // reduction_ratio, 4*gate_channels)
+            nn.Linear(256 // reduction_ratio , 4*gate_channels)
             
             )
         self.expand=nn.Linear(gate_channels,4*gate_channels)
@@ -46,12 +44,10 @@ class ChannelGate(nn.Module):
             else:
                 channel_att_sum = channel_att_sum + channel_att_raw
         
-        scale = F.sigmoid( channel_att_sum ).unsqueeze(2).unsqueeze(3).expand_as(torch.zeros([4,48*4,224,224]))
+        scale = F.sigmoid( channel_att_sum ).unsqueeze(2).unsqueeze(3).expand_as(torch.zeros([cfg.TRAIN_BATCHES,cfg.MODEL_SHORTCUT_DIM*4,x.size(2),x.size(3)]))
         #scale=self.expand(scale)
-        print(scale.size())
+        #
         return  scale
 
-net=ChannelGate()
-print(net.eval())
-tw.model_stats(net, [4, 48, 224, 224])
+
 #hl.build_graph(net, torch.zeros([4, 48, 224, 224]))
