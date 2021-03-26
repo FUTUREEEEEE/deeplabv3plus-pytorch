@@ -19,17 +19,33 @@ class myaspp(nn.Module):
 				nn.ReLU(inplace=True),
 		)
 		self.branch2 = nn.Sequential(
-				nn.Conv2d(dim_in, dim_out, 3, 1, padding=6*rate, dilation=6*rate,bias=True),   #使用的是输出大小不变的空洞卷积
+				nn.Conv2d(dim_in, dim_out, 3, 1, padding=5*rate, dilation=5*rate,bias=True),   #使用的是输出大小不变的空洞卷积
 				SynchronizedBatchNorm2d(dim_out, momentum=bn_mom),
 				nn.ReLU(inplace=True),	
 		)
-		self.branch3 = nn.Sequential(
-				nn.Conv2d(dim_in, dim_out, 3, 1, padding=12*rate, dilation=12*rate,bias=True),
+		self.branch3_1 = nn.Sequential(
+				nn.Conv2d(dim_in, dim_in, 3, 1, padding=2*rate, dilation=2*rate,bias=True),
+				SynchronizedBatchNorm2d(dim_in, momentum=bn_mom),
+				nn.ReLU(inplace=True),	     
+		)
+		self.branch3_2= nn.Sequential(
+				nn.Conv2d(dim_in, dim_out, 3, 1, padding=5*rate, dilation=5*rate,bias=True),
 				SynchronizedBatchNorm2d(dim_out, momentum=bn_mom),
 				nn.ReLU(inplace=True),	     
 		)
-		self.branch4 = nn.Sequential(
-				nn.Conv2d(dim_in, dim_out, 3, 1, padding=18*rate, dilation=18*rate,bias=True),
+		
+		self.branch4_1 = nn.Sequential(
+				nn.Conv2d(dim_in, dim_in, 3, 1, padding=2*rate, dilation=2*rate,bias=True),
+				SynchronizedBatchNorm2d(dim_in, momentum=bn_mom),
+				nn.ReLU(inplace=True),	
+		)
+		self.branch4_2 = nn.Sequential(
+				nn.Conv2d(dim_in, dim_in, 3, 1, padding=5*rate, dilation=5*rate,bias=True),
+				SynchronizedBatchNorm2d(dim_in, momentum=bn_mom),
+				nn.ReLU(inplace=True),	
+		)
+		self.branch4_3 = nn.Sequential(
+				nn.Conv2d(dim_in, dim_out, 3, 1, padding=9*rate, dilation=9*rate,bias=True),
 				SynchronizedBatchNorm2d(dim_out, momentum=bn_mom),
 				nn.ReLU(inplace=True),	
 		)
@@ -50,8 +66,13 @@ class myaspp(nn.Module):
 		[b,c,row,col] = x.size()
 		conv1x1 = self.branch1(x)
 		conv3x3_1 = self.branch2(x)
-		conv3x3_2 = self.branch3(x)
-		conv3x3_3 = self.branch4(x)
+		
+		conv3x3_2 = self.branch3_1(x)
+		conv3x3_2=self.branch3_2(conv3x3_2)
+		
+		conv3x3_3 = self.branch4_1(x)
+		conv3x3_3 = self.branch4_2(conv3x3_3)
+		conv3x3_3 = self.branch4_3(conv3x3_3)
 		#global_feature = torch.mean(x,2,True)  #input dim=1*2048*65*65 
 		#global_feature = torch.mean(global_feature,3,True)  #output 将第三四维压缩为1
 		#global_feature = self.branch5_conv(global_feature)
